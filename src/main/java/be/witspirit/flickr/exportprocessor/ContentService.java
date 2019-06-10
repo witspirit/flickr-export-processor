@@ -1,5 +1,6 @@
 package be.witspirit.flickr.exportprocessor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -11,8 +12,13 @@ import java.util.stream.Collectors;
 
 @Service
 public class ContentService {
+    private Path contentPath;
 
-    public Map<String, ContentDescriptor> loadDescriptors(Path contentPath) {
+    public ContentService(@Value("${folder.photos}") String contentFolder) {
+        this.contentPath = Path.of(contentFolder);
+    }
+
+    public Map<String, ContentDescriptor> loadDescriptors() {
         try {
             return Files.list(contentPath)
                     .map(ContentDescriptor::new)
