@@ -1,15 +1,20 @@
 package be.witspirit.flickr.exportprocessor;
 
 import be.witspirit.flickr.exportprocessor.json.Album;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @SpringBootApplication
 public class ExportProcessorApplication implements CommandLineRunner {
+    private static final Logger LOG = LoggerFactory.getLogger(ExportProcessorApplication.class);
 
     public static void main(String[] args) {
         SpringApplication.run(ExportProcessorApplication.class, args);
@@ -40,11 +45,12 @@ public class ExportProcessorApplication implements CommandLineRunner {
         Map<String, ContentDescriptor> contentById = contentService.loadDescriptors();
 //        contentService.log(contentById);
 
-        // Just trying with a single album to see the effect
+        Set<String> processedPhotoIds = new HashSet<>();
         for (Album album : albums) {
-            structuringService.copyIntoAlbumStructure(album, contentById);
+            processedPhotoIds.addAll(structuringService.copyIntoAlbumStructure(album, contentById));
         }
 
+        LOG.info("Processed {}/{} content items", processedPhotoIds.size(), contentById.keySet().size());
     }
 
 

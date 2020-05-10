@@ -41,6 +41,11 @@ public class MetadataService {
         }
     }
 
+    public PhotoMeta getMetadata(String photoId) {
+        Path photoMetaPath = metadataPath.resolve("photo_" + photoId + ".json");
+        return parsePhotoMetadata(photoMetaPath);
+    }
+
     public void log(Map<String, PhotoMeta> photoMetadata) {
         photoMetadata.values().forEach(meta -> {
             System.out.printf("%s : %s @ %s : %s\n",
@@ -86,9 +91,14 @@ public class MetadataService {
 
     private PhotoMeta parsePhotoMetadata(Path photoMetadataPath) {
         try {
-            PhotoMeta photoMeta = objectMapper.readValue(photoMetadataPath.toFile(), PhotoMeta.class);
-            // LOG.debug(photoMetadataPath+" : OK");
-            return photoMeta;
+            if (Files.exists(photoMetadataPath)) {
+                PhotoMeta photoMeta = objectMapper.readValue(photoMetadataPath.toFile(), PhotoMeta.class);
+                // LOG.debug(photoMetadataPath+" : OK");
+                return photoMeta;
+            } else {
+                LOG.warn("No metadata file found at {}", photoMetadataPath);
+                return null;
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Photo metadata from "+photoMetadataPath, e);
         }
