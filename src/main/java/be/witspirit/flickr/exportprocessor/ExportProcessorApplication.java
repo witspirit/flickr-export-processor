@@ -1,7 +1,6 @@
 package be.witspirit.flickr.exportprocessor;
 
 import be.witspirit.flickr.exportprocessor.json.Album;
-import be.witspirit.flickr.exportprocessor.json.PhotoMeta;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -19,25 +18,32 @@ public class ExportProcessorApplication implements CommandLineRunner {
 
     private final MetadataService metadataService;
     private final ContentService contentService;
+    private final StructuringService structuringService;
 
-    public ExportProcessorApplication(MetadataService metadataService, ContentService contentService) {
+    public ExportProcessorApplication(MetadataService metadataService, ContentService contentService, StructuringService structuringService) {
         this.metadataService = metadataService;
         this.contentService = contentService;
+        this.structuringService = structuringService;
     }
 
     @Override
     public void run(String... args) {
 
-        Map<String, PhotoMeta> photoMetas = metadataService.loadPhotoMetadata();
-        metadataService.log(photoMetas);
+//        Map<String, PhotoMeta> photoMetas = metadataService.loadPhotoMetadata();
+//        metadataService.log(photoMetas);
 
 
         List<Album> albums = metadataService.loadAlbums();
-        metadataService.log(albums);
+//        metadataService.log(albums);
 
 
         Map<String, ContentDescriptor> contentById = contentService.loadDescriptors();
-        contentService.log(contentById);
+//        contentService.log(contentById);
+
+        // Just trying with a single album to see the effect
+        for (Album album : albums) {
+            structuringService.copyIntoAlbumStructure(album, contentById);
+        }
 
     }
 

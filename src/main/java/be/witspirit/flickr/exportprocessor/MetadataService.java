@@ -87,7 +87,7 @@ public class MetadataService {
     private PhotoMeta parsePhotoMetadata(Path photoMetadataPath) {
         try {
             PhotoMeta photoMeta = objectMapper.readValue(photoMetadataPath.toFile(), PhotoMeta.class);
-            LOG.debug(photoMetadataPath+" : OK");
+            // LOG.debug(photoMetadataPath+" : OK");
             return photoMeta;
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse Photo metadata from "+photoMetadataPath, e);
