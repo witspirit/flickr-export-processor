@@ -68,7 +68,7 @@ public class StructuringService {
             if (photoDescriptor.getTags().isEmpty()) {
                 tagEncoding = "";
             } else {
-                tagEncoding = "_" + photoDescriptor.getTags().stream().collect(Collectors.joining("_"));
+                tagEncoding = "_" + photoDescriptor.getTags().stream().map(this::sanitizeTagForFilename).collect(Collectors.joining("_"));
             }
             String destinationFileName = content.getName() + tagEncoding + "." + content.getExtension();
 
@@ -149,6 +149,14 @@ public class StructuringService {
                 .replaceAll("/", "_")
                 .replaceAll("\\\\", "_")
                 .replaceAll(":", "_")
+                ;
+    }
+
+    private String sanitizeTagForFilename(String input) {
+        return input
+                .replaceAll(" ", "-")
+                .replaceAll("\\\\", "-")
+                .replaceAll("/", "-")
                 ;
     }
 }
