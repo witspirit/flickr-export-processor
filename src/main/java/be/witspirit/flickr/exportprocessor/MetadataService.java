@@ -15,12 +15,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class MetadataService {
     private static final Logger LOG = LoggerFactory.getLogger(MetadataService.class);
+
+    private static final Pattern PHOTO_METADATA_PATTERN = Pattern.compile("photo_(\\d+).json");
 
     private final ObjectMapper objectMapper;
     private final Path metadataPath;
@@ -36,6 +41,21 @@ public class MetadataService {
                     .filter(this::isPhotoMetadataFile)
                     .map(this::parsePhotoMetadata)
                     .collect(Collectors.toMap(PhotoMeta::getId, Function.identity()));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to list "+metadataPath, e);
+        }
+    }
+
+    public Set<String> getPhotoMetaIds() {
+        try {
+            return Files.list(metadataPath)
+                    .filter(this::isPhotoMetadataFile)
+                    .map(path -> {
+                        Matcher matcher = PHOTO_METADATA_PATTERN.matcher(path.getFileName().toString());
+                        matcher.matches();
+                        return matcher.group(1);
+                    })
+                    .collect(Collectors.toSet());
         } catch (IOException e) {
             throw new RuntimeException("Failed to list "+metadataPath, e);
         }
@@ -86,7 +106,8 @@ public class MetadataService {
 
     private boolean isPhotoMetadataFile(Path path) {
         String fileName = path.getFileName().toString();
-        return fileName.startsWith("photo_") && fileName.endsWith(".json");
+        return PHOTO_METADATA_PATTERN.matcher(fileName).matches();
+        // return fileName.startsWith("photo_") && fileName.endsWith(".json");
     }
 
     private PhotoMeta parsePhotoMetadata(Path photoMetadataPath) {

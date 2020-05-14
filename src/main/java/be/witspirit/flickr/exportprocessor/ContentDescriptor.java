@@ -5,7 +5,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ContentDescriptor {
-    private static final Pattern FILENAME_STRUCTURE = Pattern.compile("^(.+)_(\\d+)(_o)?\\.(.+)$");
+    private static final Pattern CONTENT_PATTERN_1 = Pattern.compile("^(\\d{11})_(.{10})(_o)?\\.(.+)$");
+    private static final Pattern CONTENT_PATTERN_2 = Pattern.compile("^(.+)_(\\d+)(_o)?\\.(.+)$");
 
     private Path path;
 
@@ -18,13 +19,20 @@ public class ContentDescriptor {
 
         String fileName = path.getFileName().toString();
 
-        Matcher fileNameMatcher = FILENAME_STRUCTURE.matcher(fileName);
-        if (fileNameMatcher.matches()) {
-            this.name = fileNameMatcher.group(1);
-            this.id = fileNameMatcher.group(2);
-            this.extension = fileNameMatcher.group(4);
+        Matcher pattern1Matcher = CONTENT_PATTERN_1.matcher(fileName);
+        if (pattern1Matcher.matches()) {
+            this.name = pattern1Matcher.group(2);
+            this.id = pattern1Matcher.group(1);
+            this.extension = pattern1Matcher.group(4);
         } else {
-            throw new IllegalArgumentException(path+" does not represent a Content filename");
+            Matcher pattern2Matcher = CONTENT_PATTERN_2.matcher(fileName);
+            if (pattern2Matcher.matches()) {
+                this.name = pattern2Matcher.group(4);
+                this.id = pattern2Matcher.group(2);
+                this.extension = pattern2Matcher.group(4);
+            } else {
+                throw new IllegalArgumentException(path + " does not represent a Content filename");
+            }
         }
     }
 

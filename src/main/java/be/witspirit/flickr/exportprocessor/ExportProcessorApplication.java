@@ -3,7 +3,6 @@ package be.witspirit.flickr.exportprocessor;
 import be.witspirit.flickr.exportprocessor.json.Album;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -13,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 @SpringBootApplication
-public class ExportProcessorApplication implements CommandLineRunner {
+public class ExportProcessorApplication /* implements CommandLineRunner */ {
     private static final Logger LOG = LoggerFactory.getLogger(ExportProcessorApplication.class);
 
     public static void main(String[] args) {
@@ -31,7 +30,7 @@ public class ExportProcessorApplication implements CommandLineRunner {
         this.structuringService = structuringService;
     }
 
-    @Override
+    // @Override
     public void run(String... args) {
 
 //        Map<String, PhotoMeta> photoMetas = metadataService.loadPhotoMetadata();
@@ -47,7 +46,7 @@ public class ExportProcessorApplication implements CommandLineRunner {
 
         Set<String> processedPhotoIds = new HashSet<>();
         for (Album album : albums) {
-            processedPhotoIds.addAll(structuringService.copyIntoAlbumStructure(album, contentById));
+//             processedPhotoIds.addAll(structuringService.copyIntoAlbumStructure(album, contentById));
         }
 
         LOG.info("Processed {}/{} content items", processedPhotoIds.size(), contentById.keySet().size());

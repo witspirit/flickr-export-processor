@@ -6,11 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest
+@SpringBootTest()
 public class ExportProcessorApplicationTests {
 
     @Test
     public void contextLoads() {
+        System.out.println("Context Loaded");
     }
 
 }

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -21,7 +22,15 @@ public class ContentService {
     public Map<String, ContentDescriptor> loadDescriptors() {
         try {
             return Files.list(contentPath)
-                    .map(ContentDescriptor::new)
+                    .map(path -> {
+                        try {
+                            return new ContentDescriptor(path);
+                        } catch (IllegalArgumentException e) {
+                            System.err.println(e.getMessage());
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toMap(ContentDescriptor::getId, Function.identity()));
         } catch (IOException e) {
             throw new RuntimeException("Failed to list "+contentPath, e);
