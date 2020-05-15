@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public class PhotoDescriptor {
     private final String id;
@@ -12,15 +13,36 @@ public class PhotoDescriptor {
     private final LocalDateTime dateTaken;
     private final SortedSet<String> tags = new TreeSet<>();
 
-    private final ContentDescriptor contentDescriptor;
+    private final ContentDescriptor sourceDescriptor;
+    private final String destinationFileName;
 
-    private PhotoDescriptor(String id, String name, String description, LocalDateTime dateTaken, Set<String> tags, ContentDescriptor contentDescriptor) {
+    private PhotoDescriptor(String id, String name, String description, LocalDateTime dateTaken, Set<String> tags, ContentDescriptor sourceDescriptor) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.dateTaken = dateTaken;
         this.tags.addAll(tags);
-        this.contentDescriptor = contentDescriptor;
+        this.sourceDescriptor = sourceDescriptor;
+        this.destinationFileName = deriveDestinationFileName();
+    }
+
+    private String deriveDestinationFileName() {
+        String tagEncoding;
+        if (tags.isEmpty()) {
+            tagEncoding = "";
+        } else {
+            tagEncoding = "_" +tags.stream().map(this::sanitizeTagForFilename).collect(Collectors.joining("_"));
+        }
+        // Source Descriptor Name is already extracted from a Filename, so it does not require sanitization anymore.
+        return sourceDescriptor.getName() + tagEncoding + "." + sourceDescriptor.getExtension();
+    }
+
+    private String sanitizeTagForFilename(String input) {
+        return input
+                .replaceAll(" ", "-")
+                .replaceAll("\\\\", "-")
+                .replaceAll("/", "-")
+                ;
     }
 
     public static PhotoDescriptorBuilder builder() {
@@ -47,10 +69,13 @@ public class PhotoDescriptor {
         return tags;
     }
 
-    public ContentDescriptor getContentDescriptor() {
-        return contentDescriptor;
+    public ContentDescriptor getSourceDescriptor() {
+        return sourceDescriptor;
     }
 
+    public String getDestinationFileName() {
+        return destinationFileName;
+    }
 
     public static class PhotoDescriptorBuilder {
         private String id;

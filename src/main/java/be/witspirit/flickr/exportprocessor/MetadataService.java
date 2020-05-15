@@ -5,6 +5,7 @@ import be.witspirit.flickr.exportprocessor.json.Albums;
 import be.witspirit.flickr.exportprocessor.json.PhotoMeta;
 import be.witspirit.flickr.exportprocessor.json.Tag;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,10 +29,12 @@ public class MetadataService {
     private static final Pattern PHOTO_METADATA_PATTERN = Pattern.compile("photo_(\\d+).json");
 
     private final ObjectMapper objectMapper;
+    private final ObjectReader photoMetaReader;
     private final Path metadataPath;
 
     public MetadataService(ObjectMapper objectMapper, @Value("${folder.metadata}") String metadataFolder) {
         this.objectMapper = objectMapper;
+        this.photoMetaReader = objectMapper.readerFor(PhotoMeta.class);
         this.metadataPath = Path.of(metadataFolder);
     }
 
@@ -113,7 +116,7 @@ public class MetadataService {
     private PhotoMeta parsePhotoMetadata(Path photoMetadataPath) {
         try {
             if (Files.exists(photoMetadataPath)) {
-                PhotoMeta photoMeta = objectMapper.readValue(photoMetadataPath.toFile(), PhotoMeta.class);
+                PhotoMeta photoMeta = photoMetaReader.readValue(photoMetadataPath.toFile());
                 // LOG.debug(photoMetadataPath+" : OK");
                 return photoMeta;
             } else {

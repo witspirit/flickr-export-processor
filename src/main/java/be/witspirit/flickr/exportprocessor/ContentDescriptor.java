@@ -27,7 +27,7 @@ public class ContentDescriptor {
         } else {
             Matcher pattern2Matcher = CONTENT_PATTERN_2.matcher(fileName);
             if (pattern2Matcher.matches()) {
-                this.name = pattern2Matcher.group(4);
+                this.name = pattern2Matcher.group(1);
                 this.id = pattern2Matcher.group(2);
                 this.extension = pattern2Matcher.group(4);
             } else {

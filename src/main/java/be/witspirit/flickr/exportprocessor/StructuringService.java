@@ -29,6 +29,26 @@ public class StructuringService {
         this.metadataService = metadataService;
     }
 
+    public Map<String, PhotoDescriptor> toPhotoDescriptors(Map<String, ContentDescriptor> contentIndex) {
+        DateTimeFormatter dateTakenFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd kk:mm:ss");
+        Set<String> photoIds = contentIndex.keySet();
+
+        return photoIds.stream()
+                .map(metadataService::getMetadata)
+                .map(photoMeta -> {
+                    Set<String> tags = photoMeta.getTags().stream().map(Tag::getTag).collect(Collectors.toSet());
+                    return PhotoDescriptor.builder()
+                            .id(photoMeta.getId())
+                            .name(photoMeta.getName())
+                            .description(photoMeta.getDescription())
+                            .dateTaken(LocalDateTime.parse(photoMeta.getDateTaken(), dateTakenFormat))
+                            .tags(tags)
+                            .contentDescriptor(contentIndex.get(photoMeta.getId()))
+                            .build();
+                })
+                .collect(Collectors.toMap(PhotoDescriptor::getId, Function.identity()));
+    }
+
     public Set<String> copyIntoAlbumStructure(Album album, Map<String, ContentDescriptor> contentIndex) {
         LOG.debug("Creating Album structure for {} (@{})", album.getTitle(), album.getId());
 
@@ -58,22 +78,13 @@ public class StructuringService {
 
     private Function<PhotoDescriptor, String> copyTo(Path destinationDir) {
         return photoDescriptor -> {
-            ContentDescriptor content = photoDescriptor.getContentDescriptor();
+            ContentDescriptor content = photoDescriptor.getSourceDescriptor();
             if (content == null) {
                 return null;
             }
 
-
-            String tagEncoding;
-            if (photoDescriptor.getTags().isEmpty()) {
-                tagEncoding = "";
-            } else {
-                tagEncoding = "_" + photoDescriptor.getTags().stream().map(this::sanitizeTagForFilename).collect(Collectors.joining("_"));
-            }
-            String destinationFileName = content.getName() + tagEncoding + "." + content.getExtension();
-
             Path sourcePath = content.getPath();
-            Path destinationPath = destinationDir.resolve(destinationFileName);
+            Path destinationPath = destinationDir.resolve(photoDescriptor.getDestinationFileName());
 
             try {
                 LOG.debug("Copying {} -> {}...", sourcePath, destinationPath);
@@ -106,8 +117,8 @@ public class StructuringService {
         String year = deriveYear(photoDescriptors);
         Path yearPath = createIfNotExists(destinationPath.resolve(year));
 
-        String albumFolder = deriveAlbumFolder(album);
-        long nrOfActualPhotos = photoDescriptors.stream().map(PhotoDescriptor::getContentDescriptor).filter(Objects::nonNull).count();
+        String albumFolder = deriveAlbumFolderName(album);
+        long nrOfActualPhotos = photoDescriptors.stream().map(PhotoDescriptor::getSourceDescriptor).filter(Objects::nonNull).count();
         if (nrOfActualPhotos == 0) {
             albumFolder+="-NOCONTENT";
         }
@@ -130,17 +141,38 @@ public class StructuringService {
         return path;
     }
 
+    public Path deriveAlbumPath(Album album, Collection<PhotoDescriptor> albumPhotos) {
+        String year = deriveYear(albumPhotos);
+        String albumFolder = deriveAlbumFolderName(album);
+        albumFolder = markMissingContent(albumFolder, albumPhotos);
+
+        return destinationPath.resolve(year).resolve(albumFolder);
+    }
+
+    // In my initial download, not all files were present. Hence, devised a marking strategy to easily identify these folders
+    // with missing content.
+    // With the latest version, I don't expect this to trigger, as our initial validation showed all content present
+    private String markMissingContent(String albumFolder, Collection<PhotoDescriptor> albumPhotos) {
+        long nrOfActualPhotos = albumPhotos.stream().map(PhotoDescriptor::getSourceDescriptor).filter(Objects::nonNull).count();
+        if (nrOfActualPhotos == 0) {
+            albumFolder+="-NOCONTENT";
+        }
+        return albumFolder;
+    }
+
+
     private String deriveYear(Collection<PhotoDescriptor> photoDescriptors) {
         // Let us try to obtain the 'earliest' date_taken
         return photoDescriptors.stream()
                 .map(PhotoDescriptor::getDateTaken)
+                .filter(Objects::nonNull)
                 .min(LocalDateTime::compareTo)
                 .map(LocalDateTime::getYear)
                 .map(Object::toString) // Using Object, instead of Integer as Integer has multiple toString methods, causing ambiguity
                 .orElse("UNKNOWN");
     }
 
-    private String deriveAlbumFolder(Album album) {
+    private String deriveAlbumFolderName(Album album) {
         return album.getTitle()
                 .replaceAll(" ", "_")
                 .replaceAll("\\.", "_")
@@ -152,11 +184,44 @@ public class StructuringService {
                 ;
     }
 
-    private String sanitizeTagForFilename(String input) {
-        return input
-                .replaceAll(" ", "-")
-                .replaceAll("\\\\", "-")
-                .replaceAll("/", "-")
-                ;
+    public Map<String, List<Album>> computePhotoToAlbumIndex(List<Album> albums) {
+        Map<String, List<Album>> photoIdToAlbum = new HashMap<>();
+        for (Album album : albums) {
+            for (String photoId : album.getPhotoIds()) {
+                List<Album> appearedInAlbums = photoIdToAlbum.computeIfAbsent(photoId, id -> new ArrayList<>());
+                appearedInAlbums.add(album);
+            }
+        }
+        return photoIdToAlbum;
+    }
+
+    public List<AlbumDescriptor> deriveAlbumStructure(List<Album> albums, Map<String, ContentDescriptor> photoIdToContentDescriptor) {
+        Map<String, PhotoDescriptor> photoIdToPhotoDescriptor = toPhotoDescriptors(photoIdToContentDescriptor);
+        Map<String, List<Album>> photoIdToAlbums = computePhotoToAlbumIndex(albums);
+
+
+        // First consider the Album folders and assign all photos to Albums...
+        List<AlbumDescriptor> albumDescriptors = albums.stream()
+                .map(album -> {
+                    List<PhotoDescriptor> albumPhotos = album.getPhotoIds().stream().map(photoId -> {
+                        PhotoDescriptor photoDesc = photoIdToPhotoDescriptor.get(photoId);
+                        if (photoDesc == null) {
+                            LOG.warn("No PhotoDescriptor found for PhotoId {} in Album {}", photoId, album.getTitle());
+                        }
+                        return photoDesc;
+                    }).filter(Objects::nonNull).collect(Collectors.toList());
+                    Path albumPath = deriveAlbumPath(album, albumPhotos);
+                    return new AlbumDescriptor(album.getId(), album.getTitle(), albumPhotos, albumPath);
+                })
+                .collect(Collectors.toList());
+
+        // Add an AlbumDescriptor with the photo's not in an album
+        Set<String> photoIdsWithoutAlbum = photoIdToPhotoDescriptor.keySet();
+        photoIdsWithoutAlbum.removeAll(photoIdToAlbums.keySet());
+        List<PhotoDescriptor> uncategorizedPhotos = photoIdsWithoutAlbum.stream().map(photoIdToPhotoDescriptor::get).collect(Collectors.toList());
+
+        AlbumDescriptor uncategorizedAlbum = new AlbumDescriptor("UNCATEGORIZED", "Uncategorized Photos", uncategorizedPhotos, destinationPath.resolve("Uncategorized"));
+        albumDescriptors.add(uncategorizedAlbum);
+        return albumDescriptors;
     }
 }

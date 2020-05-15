@@ -20,6 +20,9 @@ public class ExportProcessorRunner {
     @Autowired
     private ContentService contentService;
 
+    @Autowired
+    private StructuringService structuringService;
+
     @Test
     public void checkForPhotosInMultipleAlbums() {
         List<Album> albums = metadataService.loadAlbums();
@@ -72,6 +75,22 @@ public class ExportProcessorRunner {
             System.out.println(photoId + " : " + metadataService.getMetadata(photoId).getName());
         }
 
+    }
+
+    @Test
+    public void describeTargetStructure() {
+        Map<String, ContentDescriptor> photoIdToContentDescriptor = contentService.loadDescriptors();
+        List<Album> albums = metadataService.loadAlbums();
+
+        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoIdToContentDescriptor);
+
+        System.out.println("Target Structure:");
+        for (AlbumDescriptor album : albumDescriptors) {
+            System.out.println(album.getAlbumPath());
+            for (PhotoDescriptor photo : album.getPhotos()) {
+                System.out.println("  " + photo.getDestinationFileName());
+            }
+        }
     }
 
 }
