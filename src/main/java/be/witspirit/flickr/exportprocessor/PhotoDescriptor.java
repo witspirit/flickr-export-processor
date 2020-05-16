@@ -1,12 +1,15 @@
 package be.witspirit.flickr.exportprocessor;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class PhotoDescriptor {
+    private static final Set<String> IGNORED_TAGS = Set.of("flickrandroidapp:filter=none", "iphoneography", "instagram app", "uploaded:by=instagram", "Normal", "square", "square format");
+
     private final String id;
     private final String name;
     private final String description;
@@ -31,18 +34,21 @@ public class PhotoDescriptor {
         if (tags.isEmpty()) {
             tagEncoding = "";
         } else {
-            tagEncoding = "_" +tags.stream().map(this::sanitizeTagForFilename).collect(Collectors.joining("_"));
+            tagEncoding = "___#" +tags.stream().map(this::sanitizeTagForFilename).filter(Optional::isPresent).map(Optional::get).collect(Collectors.joining("#"));
         }
         // Source Descriptor Name is already extracted from a Filename, so it does not require sanitization anymore.
         return sourceDescriptor.getName() + tagEncoding + "." + sourceDescriptor.getExtension();
     }
 
-    private String sanitizeTagForFilename(String input) {
-        return input
+    private Optional<String> sanitizeTagForFilename(String input) {
+        if (IGNORED_TAGS.contains(input)) {
+            return Optional.empty();
+        }
+        return Optional.of(input
                 .replaceAll(" ", "-")
                 .replaceAll("\\\\", "-")
                 .replaceAll("/", "-")
-                ;
+        );
     }
 
     public static PhotoDescriptorBuilder builder() {

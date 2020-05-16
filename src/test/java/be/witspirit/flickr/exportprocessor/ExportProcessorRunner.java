@@ -1,6 +1,8 @@
 package be.witspirit.flickr.exportprocessor;
 
 import be.witspirit.flickr.exportprocessor.json.Album;
+import be.witspirit.flickr.exportprocessor.json.PhotoMeta;
+import be.witspirit.flickr.exportprocessor.json.Tag;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,6 +93,18 @@ public class ExportProcessorRunner {
                 System.out.println("  " + photo.getDestinationFileName());
             }
         }
+    }
+
+    @Test
+    public void listDistinctTags() {
+        SortedSet<String> distinctTags = metadataService.loadPhotoMetadata().values().stream()
+                .map(PhotoMeta::getTags)
+                .flatMap(List::stream)
+                .map(Tag::getTag)
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        System.out.println("Distinct Tags in all Photo Metadata:");
+        distinctTags.forEach(System.out::println);
     }
 
 }
