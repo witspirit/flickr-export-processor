@@ -144,7 +144,7 @@ public class StructuringService {
     public Path deriveAlbumPath(Album album, Collection<PhotoDescriptor> albumPhotos) {
         String year = deriveYear(albumPhotos);
         String albumFolder = deriveAlbumFolderName(album);
-        albumFolder = markMissingContent(albumFolder, albumPhotos);
+//         albumFolder = markMissingContent(albumFolder, albumPhotos); // Not marking missing content, as I switched strategy to move... So when I rerun, there are folders that may already exist with content
 
         return destinationPath.resolve(year).resolve(albumFolder);
     }
@@ -193,6 +193,17 @@ public class StructuringService {
             }
         }
         return photoIdToAlbum;
+    }
+
+    public Map<PhotoDescriptor, List<AlbumDescriptor>> computePhotoDescriptorToAlbumDescriptorIndex(List<AlbumDescriptor> albumDescriptors) {
+        Map<PhotoDescriptor, List<AlbumDescriptor>> photoToAlbum = new HashMap<>();
+        for (AlbumDescriptor album : albumDescriptors) {
+            for (PhotoDescriptor photo : album.getPhotos()) {
+                List<AlbumDescriptor> appearedInAlbums = photoToAlbum.computeIfAbsent(photo, id -> new ArrayList<>());
+                appearedInAlbums.add(album);
+            }
+        }
+        return photoToAlbum;
     }
 
     public List<AlbumDescriptor> deriveAlbumStructure(List<Album> albums, Map<String, ContentDescriptor> photoIdToContentDescriptor) {

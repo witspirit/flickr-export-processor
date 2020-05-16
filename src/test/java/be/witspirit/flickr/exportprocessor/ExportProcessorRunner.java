@@ -5,16 +5,22 @@ import be.witspirit.flickr.exportprocessor.json.PhotoMeta;
 import be.witspirit.flickr.exportprocessor.json.Tag;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class ExportProcessorRunner {
+    private static final Logger LOG = LoggerFactory.getLogger(ExportProcessorRunner.class);
 
     @Autowired
     private MetadataService metadataService;
@@ -105,6 +111,93 @@ public class ExportProcessorRunner {
 
         System.out.println("Distinct Tags in all Photo Metadata:");
         distinctTags.forEach(System.out::println);
+    }
+
+    @Test
+    public void moveFilesIntoTargetStructure() {
+        Map<String, ContentDescriptor> photoIdToContentDescriptor = contentService.loadDescriptors();
+        List<Album> albums = metadataService.loadAlbums();
+
+        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoIdToContentDescriptor);
+
+        // First, create all folders
+        for (AlbumDescriptor albumDescriptor : albumDescriptors) {
+            Path albumPath = albumDescriptor.getAlbumPath();
+
+            try {
+                Files.createDirectories(albumPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create directory structure for "+albumPath, e);
+            }
+        }
+
+        // Then, move or copy all files to their respective folders
+        Map<PhotoDescriptor, List<AlbumDescriptor>> photos = structuringService.computePhotoDescriptorToAlbumDescriptorIndex(albumDescriptors);
+        for (PhotoDescriptor photo : photos.keySet()) {
+            List<AlbumDescriptor> albumAppearances = photos.get(photo);
+
+            if (photo.getSourceDescriptor() == null) {
+                // Probably a photo we already moved...
+                LOG.debug("No source for {}-{}", photo.getId(), photo.getName());
+            } else {
+                Path source = photo.getSourceDescriptor().getPath();
+
+                AlbumDescriptor moveToAlbum = albumAppearances.get(0);
+                if (albumAppearances.size() > 1) {
+                    // We copy to extra albums first
+                    albumAppearances.stream().skip(1)
+                            .forEach(copyToAlbum -> {
+                                Path destination = copyToAlbum.getAlbumPath().resolve(photo.getDestinationFileName());
+
+                                LOG.debug("Copying {} -> {}...", source, destination);
+                                if (destinationAlreadyPresent(destination, source)) {
+                                    LOG.debug("File {} already exists. Skipping...", destination);
+                                } else {
+                                    try {
+                                        Files.copy(source, destination);
+                                        LOG.debug("Copied  {} -> {}", source, destination);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException("Failed to copy " + source + " -> " + destination, e);
+                                    }
+                                }
+                            });
+                }
+
+                // Finally, we MOVE the remaining file
+                Path destination = moveToAlbum.getAlbumPath().resolve(photo.getDestinationFileName());
+                LOG.debug("Moving {} -> {}...", source, destination);
+                if (destinationAlreadyPresent(destination, source)) {
+                    LOG.debug("File {} already exists. Skipping...", destination);
+                } else {
+                    try {
+                        Files.move(source, destination);
+                        LOG.debug("Moved {} -> {}", source, destination);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to move " + source + " -> " + destination, e);
+                    }
+                }
+            }
+
+        }
+
+    }
+
+    private boolean destinationAlreadyPresent(Path destination, Path source) {
+        if (!Files.exists(destination)) {
+            return false;
+        }
+
+        try {
+            long sourceSize = Files.size(source);
+            long destinationSize = Files.size(destination);
+
+            if (destinationSize == sourceSize) {
+                return true;
+            }
+            throw new RuntimeException("Destination "+destination+" already present, but different from "+source);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to obtain file size for determining destination mismatch for "+destination, e);
+        }
     }
 
 }
