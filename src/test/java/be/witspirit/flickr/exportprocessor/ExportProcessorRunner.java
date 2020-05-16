@@ -138,11 +138,12 @@ public class ExportProcessorRunner {
         for (PhotoDescriptor photo : photos.keySet()) {
             List<AlbumDescriptor> albumAppearances = photos.get(photo);
 
-            if (photo.getSourceDescriptor().isEmpty()) {
+            ContentDescriptor contentDescriptor = photoIdToContentDescriptor.get(photo.getId());
+            if (contentDescriptor == null) {
                 // Probably a photo we already moved...
                 LOG.debug("No source for {}-{}", photo.getId(), photo.getName());
             } else {
-                Path source = photoIdToContentDescriptor.get(photo.getId()).getPath();
+                Path source = contentDescriptor.getPath();
 
                 AlbumDescriptor moveToAlbum = albumAppearances.get(0);
                 if (albumAppearances.size() > 1) {
