@@ -3,7 +3,6 @@ package be.witspirit.flickr.exportprocessor;
 import be.witspirit.flickr.exportprocessor.json.Album;
 import be.witspirit.flickr.exportprocessor.json.Albums;
 import be.witspirit.flickr.exportprocessor.json.PhotoMeta;
-import be.witspirit.flickr.exportprocessor.json.Tag;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.slf4j.Logger;
@@ -69,21 +68,6 @@ public class MetadataService {
         return parsePhotoMetadata(photoMetaPath);
     }
 
-    public void log(Map<String, PhotoMeta> photoMetadata) {
-        photoMetadata.values().forEach(meta -> {
-            System.out.printf("%s : %s @ %s : %s\n",
-                    meta.getId(),
-                    meta.getName(),
-                    meta.getDateTaken(),
-                    meta.getTags().stream().map(Tag::getTag).collect(Collectors.toList())
-            );
-            meta.getExif().forEach((key, value) -> {
-                System.out.printf("  %s -> %s\n", key, value);
-            });
-        });
-    }
-
-
     public List<Album> loadAlbums() {
         try {
             return objectMapper.readValue(metadataPath.resolve("albums.json").toFile(), Albums.class).getAlbums();
@@ -91,21 +75,6 @@ public class MetadataService {
             throw new RuntimeException("Failed to parse Albums", e);
         }
     }
-
-    public void log(List<Album> albums) {
-        albums.forEach(a -> {
-            System.out.printf("%s : %s (%s) @ %s (%s): %s\n",
-                    a.getId(),
-                    a.getTitle(),
-                    a.getPhotoCount(),
-                    a.getCreated(),
-                    a.getLastUpdated(),
-                    a.getPhotoIds()
-            );
-        });
-    }
-
-
 
     private boolean isPhotoMetadataFile(Path path) {
         String fileName = path.getFileName().toString();

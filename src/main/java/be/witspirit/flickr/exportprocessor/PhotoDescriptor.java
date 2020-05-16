@@ -20,8 +20,6 @@ public class PhotoDescriptor {
     private final String fileExtension;
     private final String destinationFileName;
 
-    private ContentDescriptor sourceDescriptor = null;
-
     private PhotoDescriptor(String id, String name, String description, LocalDateTime dateTaken, String flickrFilename, Set<String> tags) {
         this.id = id;
         this.name = name;
@@ -91,15 +89,6 @@ public class PhotoDescriptor {
         return tags;
     }
 
-    public Optional<ContentDescriptor> getSourceDescriptor() {
-        return Optional.ofNullable(this.sourceDescriptor);
-    }
-
-    public PhotoDescriptor setSourceDescriptor(ContentDescriptor sourceDescriptor) {
-        this.sourceDescriptor = sourceDescriptor;
-        return this;
-    }
-
     public String getDestinationFileName() {
         return destinationFileName;
     }
@@ -110,7 +99,6 @@ public class PhotoDescriptor {
         private String description;
         private String flickrFilename;
         private LocalDateTime dateTaken;
-        private ContentDescriptor contentDescriptor = null;
         private Set<String> tags;
 
         public PhotoDescriptorBuilder id(String id) {
@@ -138,18 +126,13 @@ public class PhotoDescriptor {
             return this;
         }
 
-        public PhotoDescriptorBuilder contentDescriptor(ContentDescriptor contentDescriptor) {
-            this.contentDescriptor = contentDescriptor;
-            return this;
-        }
-
         public PhotoDescriptorBuilder tags(Set<String> tags) {
             this.tags = tags;
             return this;
         }
 
         public PhotoDescriptor build() {
-            return new PhotoDescriptor(id, name, description, dateTaken, flickrFilename, tags).setSourceDescriptor(contentDescriptor);
+            return new PhotoDescriptor(id, name, description, dateTaken, flickrFilename, tags);
         }
     }
 }
