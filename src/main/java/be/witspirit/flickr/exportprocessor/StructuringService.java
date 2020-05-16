@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -93,19 +94,45 @@ public class StructuringService {
                 })
                 .collect(Collectors.toList());
 
+
+
+        // Add an AlbumDescriptor with the photo's not in an album
         Set<String> albumAssignedPhotoIds = albumDescriptors.stream()
                 .map(AlbumDescriptor::getPhotos)
                 .flatMap(List::stream)
                 .map(PhotoDescriptor::getId)
                 .collect(Collectors.toSet());
-
-        // Add an AlbumDescriptor with the photo's not in an album
         Set<String> photoIdsWithoutAlbum = photos.keySet();
         photoIdsWithoutAlbum.removeAll(albumAssignedPhotoIds);
         List<PhotoDescriptor> uncategorizedPhotos = photoIdsWithoutAlbum.stream().map(photos::get).collect(Collectors.toList());
 
         AlbumDescriptor uncategorizedAlbum = new AlbumDescriptor("UNCATEGORIZED", "Uncategorized Photos", uncategorizedPhotos, destinationPath.resolve("Uncategorized_Photos"));
         albumDescriptors.add(uncategorizedAlbum);
+
+        // Apparently there are photos with missing metadata, which don't have proper names. Only after we have the Album
+        // structure, we can probably derive sensible photo names, based on the Albums.
+        albumDescriptors.stream().forEach(album -> {
+            List<PhotoDescriptor> albumPhotos = album.getPhotos();
+            for (int i=0; i < albumPhotos.size(); i++) {
+                // Old school loop, as I want the index
+                PhotoDescriptor photo = albumPhotos.get(i);
+                if (!StringUtils.hasText(photo.getName())) {
+                    LOG.trace("Photo {} in Album {} has a missing name", photo.getId(), album.getName());
+                    String derivedPhotoName = String.format("%s-%03d", FileNameSanitizer.text(album.getName()), i+1);
+                    PhotoDescriptor newPhoto = PhotoDescriptor.builder()
+                            .id(photo.getId())
+                            .name(derivedPhotoName)
+                            .description(photo.getDescription())
+                            .dateTaken(photo.getDateTaken())
+                            .flickrFilename(photo.getFlickrFilename())
+                            .tags(photo.getTags())
+                            .build();
+                    albumPhotos.set(i, newPhoto);
+                    LOG.trace("Assigned {} at index {}", derivedPhotoName, i);
+                }
+            }
+        });
+
         return albumDescriptors;
     }
 }
