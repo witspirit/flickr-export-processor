@@ -10,6 +10,7 @@ public class PhotoMeta {
     private String description;
     @JsonProperty("date_taken")
     private String dateTaken;
+    private String original;
 
     private Map<String, ExifValue> exif = new LinkedHashMap<>();
 
@@ -30,6 +31,10 @@ public class PhotoMeta {
 
     public String getDateTaken() {
         return dateTaken;
+    }
+
+    public String getOriginal() {
+        return original;
     }
 
     public Map<String, ExifValue> getExif() {

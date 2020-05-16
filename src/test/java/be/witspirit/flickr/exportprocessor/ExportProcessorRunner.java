@@ -50,7 +50,7 @@ public class ExportProcessorRunner {
         if (photosAppearingInMultipleAlbums.isEmpty()) {
             System.out.println("There are no photo's appearing in multiple albums. Analyzed "+albums.size()+" albums.");
         } else {
-            System.out.println("The following photo's appear in multiple Albums: ");
+            System.out.println(photosAppearingInMultipleAlbums.size()+" photo's appear in multiple Albums: ");
             for (String photoId : photosAppearingInMultipleAlbums.keySet()) {
                 System.out.printf("%-10s : %s\n", photoId, photosAppearingInMultipleAlbums.get(photoId).stream().map(Album::getTitle).collect(Collectors.joining(", ")));
             }
@@ -60,7 +60,6 @@ public class ExportProcessorRunner {
     @Test
     public void doWeHaveMetadataForEachContentItemAndViceVersa() {
         Map<String, ContentDescriptor> photoIdToContentItem = contentService.loadDescriptors();
-        // Map<String, PhotoMeta> photoIdToMetadata = metadataService.loadPhotoMetadata();
         Set<String> photoMetaIds = metadataService.getPhotoMetaIds();
 
         Set<String> photosInContentWithoutMetadata = new HashSet<>(photoIdToContentItem.keySet());
@@ -87,10 +86,10 @@ public class ExportProcessorRunner {
 
     @Test
     public void describeTargetStructure() {
-        Map<String, ContentDescriptor> photoIdToContentDescriptor = contentService.loadDescriptors();
         List<Album> albums = metadataService.loadAlbums();
+        Map<String, PhotoMeta> photoMetaIndex = metadataService.loadPhotoMetadata();
 
-        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoIdToContentDescriptor);
+        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoMetaIndex);
 
         System.out.println("Target Structure:");
         for (AlbumDescriptor album : albumDescriptors) {
@@ -116,9 +115,12 @@ public class ExportProcessorRunner {
     @Test
     public void moveFilesIntoTargetStructure() {
         Map<String, ContentDescriptor> photoIdToContentDescriptor = contentService.loadDescriptors();
-        List<Album> albums = metadataService.loadAlbums();
 
-        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoIdToContentDescriptor);
+        List<Album> albums = metadataService.loadAlbums();
+        Map<String, PhotoMeta> photoMetaIndex = metadataService.loadPhotoMetadata();
+
+        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoMetaIndex);
+
 
         // First, create all folders
         for (AlbumDescriptor albumDescriptor : albumDescriptors) {
@@ -136,68 +138,29 @@ public class ExportProcessorRunner {
         for (PhotoDescriptor photo : photos.keySet()) {
             List<AlbumDescriptor> albumAppearances = photos.get(photo);
 
-            if (photo.getSourceDescriptor() == null) {
+            if (photo.getSourceDescriptor().isEmpty()) {
                 // Probably a photo we already moved...
                 LOG.debug("No source for {}-{}", photo.getId(), photo.getName());
             } else {
-                Path source = photo.getSourceDescriptor().getPath();
+                Path source = photoIdToContentDescriptor.get(photo.getId()).getPath();
 
                 AlbumDescriptor moveToAlbum = albumAppearances.get(0);
                 if (albumAppearances.size() > 1) {
                     // We copy to extra albums first
-                    albumAppearances.stream().skip(1)
-                            .forEach(copyToAlbum -> {
-                                Path destination = copyToAlbum.getAlbumPath().resolve(photo.getDestinationFileName());
-
-                                LOG.debug("Copying {} -> {}...", source, destination);
-                                if (destinationAlreadyPresent(destination, source)) {
-                                    LOG.debug("File {} already exists. Skipping...", destination);
-                                } else {
-                                    try {
-                                        Files.copy(source, destination);
-                                        LOG.debug("Copied  {} -> {}", source, destination);
-                                    } catch (IOException e) {
-                                        throw new RuntimeException("Failed to copy " + source + " -> " + destination, e);
-                                    }
-                                }
-                            });
+                    albumAppearances.stream()
+                            .skip(1) // The first one is our 'moveTo' Album
+                            .map(copyToAlbum -> copyToAlbum.getAlbumPath().resolve(photo.getDestinationFileName()))
+                            .forEach(destination -> Transfer.COPY.transfer(source, destination))
+                            ;
                 }
 
                 // Finally, we MOVE the remaining file
                 Path destination = moveToAlbum.getAlbumPath().resolve(photo.getDestinationFileName());
-                LOG.debug("Moving {} -> {}...", source, destination);
-                if (destinationAlreadyPresent(destination, source)) {
-                    LOG.debug("File {} already exists. Skipping...", destination);
-                } else {
-                    try {
-                        Files.move(source, destination);
-                        LOG.debug("Moved {} -> {}", source, destination);
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to move " + source + " -> " + destination, e);
-                    }
-                }
+                Transfer.MOVE.transfer(source, destination);
             }
 
         }
 
-    }
-
-    private boolean destinationAlreadyPresent(Path destination, Path source) {
-        if (!Files.exists(destination)) {
-            return false;
-        }
-
-        try {
-            long sourceSize = Files.size(source);
-            long destinationSize = Files.size(destination);
-
-            if (destinationSize == sourceSize) {
-                return true;
-            }
-            throw new RuntimeException("Destination "+destination+" already present, but different from "+source);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to obtain file size for determining destination mismatch for "+destination, e);
-        }
     }
 
 }

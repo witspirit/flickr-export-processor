@@ -15,19 +15,30 @@ public class PhotoDescriptor {
     private final String description;
     private final LocalDateTime dateTaken;
     private final SortedSet<String> tags = new TreeSet<>();
+    private final String flickrFilename;
 
-    private final ContentDescriptor sourceDescriptor;
+    private final String fileExtension;
     private final String destinationFileName;
 
-    private PhotoDescriptor(String id, String name, String description, LocalDateTime dateTaken, Set<String> tags, ContentDescriptor sourceDescriptor) {
+    private ContentDescriptor sourceDescriptor = null;
+
+    private PhotoDescriptor(String id, String name, String description, LocalDateTime dateTaken, String flickrFilename, Set<String> tags) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.dateTaken = dateTaken;
-        this.tags.addAll(tags);
-        this.sourceDescriptor = sourceDescriptor;
+        if (tags != null) {
+            this.tags.addAll(tags);
+        }
+        this.flickrFilename = flickrFilename;
+        this.fileExtension = extractFileExtension(flickrFilename);
         this.destinationFileName = deriveDestinationFileName();
     }
+
+    private String extractFileExtension(String filename) {
+        return filename.substring(filename.lastIndexOf('.'));
+    }
+
 
     private String deriveDestinationFileName() {
         String tagEncoding;
@@ -36,8 +47,9 @@ public class PhotoDescriptor {
         } else {
             tagEncoding = "___#" +tags.stream().map(this::sanitizeTagForFilename).filter(Optional::isPresent).map(Optional::get).collect(Collectors.joining("#"));
         }
-        // Source Descriptor Name is already extracted from a Filename, so it does not require sanitization anymore.
-        return sourceDescriptor.getName() + tagEncoding + "." + sourceDescriptor.getExtension();
+        // Add original flickr id to ensure uniqueness. Experience has shown that we have duplicate names for distinct photos !
+        // It's not very readable, but it at least properly disambiguates in a potentially sensible way. Put it after the name, to not disrupt the more natural name ordering.
+        return FileNameSanitizer.text(name)+ "+"+id + tagEncoding + fileExtension;
     }
 
     private Optional<String> sanitizeTagForFilename(String input) {
@@ -71,12 +83,21 @@ public class PhotoDescriptor {
         return dateTaken;
     }
 
+    public String getFlickrFilename() {
+        return flickrFilename;
+    }
+
     public SortedSet<String> getTags() {
         return tags;
     }
 
-    public ContentDescriptor getSourceDescriptor() {
-        return sourceDescriptor;
+    public Optional<ContentDescriptor> getSourceDescriptor() {
+        return Optional.ofNullable(this.sourceDescriptor);
+    }
+
+    public PhotoDescriptor setSourceDescriptor(ContentDescriptor sourceDescriptor) {
+        this.sourceDescriptor = sourceDescriptor;
+        return this;
     }
 
     public String getDestinationFileName() {
@@ -87,8 +108,9 @@ public class PhotoDescriptor {
         private String id;
         private String name;
         private String description;
+        private String flickrFilename;
         private LocalDateTime dateTaken;
-        private ContentDescriptor contentDescriptor;
+        private ContentDescriptor contentDescriptor = null;
         private Set<String> tags;
 
         public PhotoDescriptorBuilder id(String id) {
@@ -103,6 +125,11 @@ public class PhotoDescriptor {
 
         public PhotoDescriptorBuilder description(String description) {
             this.description = description;
+            return this;
+        }
+
+        public PhotoDescriptorBuilder flickrFilename(String flickrFilename) {
+            this.flickrFilename = flickrFilename;
             return this;
         }
 
@@ -122,7 +149,7 @@ public class PhotoDescriptor {
         }
 
         public PhotoDescriptor build() {
-            return new PhotoDescriptor(id, name, description, dateTaken, tags, contentDescriptor);
+            return new PhotoDescriptor(id, name, description, dateTaken, flickrFilename, tags).setSourceDescriptor(contentDescriptor);
         }
     }
 }
