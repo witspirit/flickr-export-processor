@@ -164,4 +164,49 @@ public class ExportProcessorRunner {
 
     }
 
+    @Test
+    public void renameAllToReintroduceSpaces() {
+        // After the structure was setup, I decided to change strategy on the handling of spaces. In comparison with
+        // my earlier Album approach, it seems more logical to retain spaces.
+        // Hence, instead of reprocessing everything, I will generate the structure again, but now with the retention
+        // of spaces and then perform a rename/move operation.
+
+        List<Album> albums = metadataService.loadAlbums();
+        Map<String, PhotoMeta> photoMetaIndex = metadataService.loadPhotoMetadata();
+
+        List<AlbumDescriptor> albumDescriptors = structuringService.deriveAlbumStructure(albums, photoMetaIndex);
+
+        for (AlbumDescriptor albumDescriptor : albumDescriptors) {
+            Path albumDestination = albumDescriptor.getAlbumPath();
+            Path albumSource = albumDestination.resolveSibling(albumDestination.getFileName().toString().replaceAll(" ", "_"));
+
+            if (!forExistingSource(albumSource, albumDestination, Transfer.MOVE)) {
+                // We had a special case with trailing spaces, which in the original approach yielded a trailing _
+                Path altAlbumSource = albumSource.resolveSibling(albumSource.getFileName().toString()+"_");
+                forExistingSource(altAlbumSource, albumDestination, Transfer.MOVE);
+            }
+
+            for (PhotoDescriptor photo : albumDescriptor.getPhotos()) {
+                Path photoDestination = albumDestination.resolve(photo.getDestinationFileName());
+                Path photoSource = albumDestination.resolve(photo.getDestinationFileName().replaceAll(" ", "_"));
+
+                forExistingSource(photoSource, photoDestination, Transfer.MOVE);
+            }
+
+        }
+
+
+
+    }
+
+    private boolean forExistingSource(Path source, Path destination, Transfer transfer) {
+        if (Files.exists(source)) {
+            transfer.transfer(source, destination);
+            return true;
+        } else {
+            LOG.debug(source+" does not exist. Probably already processed. Skipping...");
+            return false;
+        }
+    }
+
 }

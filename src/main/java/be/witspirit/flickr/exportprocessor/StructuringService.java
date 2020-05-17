@@ -43,7 +43,7 @@ public class StructuringService {
 
     public Path deriveAlbumPath(Album album, Collection<PhotoDescriptor> albumPhotos) {
         String year = deriveYear(albumPhotos);
-        String albumFolder = FileNameSanitizer.text(album.getTitle());
+        String albumFolder = FileNameSanitizer.text(album.getTitle()).trim();
 
         return destinationPath.resolve(year).resolve(albumFolder);
     }
